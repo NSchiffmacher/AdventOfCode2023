@@ -2,24 +2,35 @@ use std::fs::read_to_string;
 use std::io::{self, Write};
 
 use itertools::Itertools;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use threadpool::ThreadPool;
-use std::sync::mpsc;
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Mapping {
-    pub source: String,
-    pub destination: String,
-
-    pub ranges: Vec<Range>,
+    source: String,
+    destination: String,
+    
+    ranges: Vec<Range>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Range {
     source_start: usize,
     destination_start: usize,
     length: usize,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct BaseRange {
+    start: usize,
+    end: usize,
+}
+
+impl BaseRange {
+    fn new(start: usize, end: usize) -> Self {
+        Self {
+            start, end
+        }
+    } 
 }
 
 impl From<&str> for Range {
@@ -40,6 +51,37 @@ impl Range {
         } else {
             None
         }
+    }
+
+    fn range_convert(&self, range: BaseRange) -> HashSet<BaseRange> {
+        let mut ranges = HashSet::new();
+        
+        let a = range.start;
+        let b = self.source_start;
+        let c = self.source_start + self.length - 1;
+        let d = range.end;
+
+        let inter_a = a.max(b);
+        let inter_b = c.min(d);
+
+        // mapped range
+        if inter_a != inter_b {
+            ranges.insert(BaseRange::new(inter_a, inter_b));
+        }
+
+        // First not mapped range 
+        if a.min(b) != inter_a {
+            ranges.insert(BaseRange::new(a.min(b), inter_a));
+
+        }
+
+        // Second not mapped range 
+        if c.max(d) != inter_b {
+            ranges.insert(BaseRange::new(inter_b, c.max(d)));
+
+        }
+
+        ranges
     }
 }
 
@@ -67,12 +109,21 @@ impl Mapping {
             Err(..) => value
         }
     }
+
+    fn range_convert(&self, range: BaseRange) -> HashSet<BaseRange> {
+        let mut ranges = HashSet::new();
+        for convert_range in &self.ranges {
+            ranges.extend((*convert_range).range_convert(range.clone()));
+        }
+        ranges
+    }
 }
 
 pub struct Solution {
     lines: Vec<String>,
     content: String,
     mappings: HashMap<String, Mapping>,
+    memo: HashMap<(String, usize), usize>, // Maps a state and value in the state into the location value
     seeds: Vec<usize>,
 }
 
@@ -101,10 +152,14 @@ impl Solution {
             content,
             mappings,
             seeds,
+            memo: HashMap::new(),
         }
     }
 
+
+
     fn part1(&mut self) -> usize{
+        // Solving
         let mut res = usize::MAX;
         for seed in &self.seeds {
             let mut value = *seed;
@@ -121,40 +176,33 @@ impl Solution {
     }
 
     fn part2(&mut self) -> usize{
-        let jobs_per_range = 100;
-        let jobs = self.seeds.len()/2 * jobs_per_range;
-        let pool = ThreadPool::new(jobs);
-        let (tx, rx) = mpsc::channel();
+        let mut res = usize::MAX;
+        for i in 0..self.seeds.len() / 2 {
+            let mut source = "seed";
+            let mut seed_ranges = HashSet::new();
+            seed_ranges.insert(BaseRange::new(self.seeds[2*i], self.seeds[2*i]+self.seeds[2*i+1]-1));
 
-        for i in 0..self.seeds.len()/2 {
-            let a = self.seeds[2*i];
-            let b = self.seeds[2*i]+self.seeds[2*i+1];
-            let per_job = (b - a) / jobs_per_range;
-
-            for j in 0..jobs_per_range {
-                let mappings = self.mappings.clone();
-                let tx = tx.clone();
-
-                pool.execute(move || {
-                    let mut res = usize::MAX;
-    
-                    for seed in a + j * per_job..a + (j+1) * per_job {
-                        let mut value = seed;
-                        let mut source = "seed";
-                        
-                        while let Some(mapping) = mappings.get(source) {
-                            value = mapping.forward_convert(value);
-                            source = mapping.destination.as_str();
-                        }
-        
-                        res = res.min(value);
-                    }
-    
-                    let _ = tx.send(res);
-                });
+            println!("range: {:?}", seed_ranges);
+            
+            while let Some(mapping) = self.mappings.get(source) {
+                let mut new_ranges = HashSet::new();
+                for range in seed_ranges {
+                    new_ranges.extend(mapping.range_convert(range));
+                }
+                seed_ranges = new_ranges;
+                source = mapping.destination.as_str();
             }
+
+
+            let value = seed_ranges.iter().map(|range| range.start).min();
+            if value == Some(0) {
+                println!("val: {:?}", value);
+                // println!("range: {:?}", seed_ranges);
+                panic!();
+            }
+            println!("     -> {:?}", value);
         }
-        rx.iter().take(jobs).min().unwrap()
+        res
     }
 
     pub fn solve(&mut self) {
