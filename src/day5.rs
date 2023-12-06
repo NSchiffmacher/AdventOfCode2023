@@ -5,7 +5,7 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 use threadpool::ThreadPool;
-use std::sync::{mpsc, Arc, RwLock};
+use std::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub struct SeedRange {
