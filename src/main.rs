@@ -26,5 +26,5 @@ mod day23;
 mod day24;
 
 fn main() {
-    day5::Solution::init().solve();
+    day6::Solution::init().solve();
 }
