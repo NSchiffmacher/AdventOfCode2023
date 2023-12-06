@@ -5,7 +5,13 @@ use itertools::Itertools;
 use std::collections::HashMap;
 
 use threadpool::ThreadPool;
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, RwLock};
+
+#[derive(Debug, Clone)]
+pub struct SeedRange {
+    start: usize,
+    end: usize,
+}
 
 #[derive(Debug, Clone)]
 pub struct Mapping {
@@ -21,6 +27,7 @@ pub struct Range {
     destination_start: usize,
     length: usize,
 }
+
 
 impl From<&str> for Range {
     fn from(line: &str) -> Self {
@@ -121,40 +128,50 @@ impl Solution {
     }
 
     fn part2(&mut self) -> usize{
-        let jobs_per_range = 100;
-        let jobs = self.seeds.len()/2 * jobs_per_range;
-        let pool = ThreadPool::new(jobs);
+        // Compute the different ranges
+        let threads = 256;
+        let mut ranges = vec![];
+
+        for i in 0..self.seeds.len() / 2 {
+            ranges.push(SeedRange{ start: self.seeds[2*i], end: self.seeds[2*i]+self.seeds[2*i+1]});
+        }
+
+        while ranges.len() < threads {
+            let index = ranges.iter().position_max_by_key(|x| x.end - x.start).unwrap();
+            let (start, end) = (ranges[index].start, ranges[index].end);
+            let half = (start + end) / 2;
+            ranges.remove(index);
+            ranges.push(SeedRange { start, end: half });
+            ranges.push(SeedRange { start: half+1, end });
+        }
+
+        // Multithread the computation
+        let pool = ThreadPool::new(threads);
+        // let mappings = Arc::new(RwLock::new(self.mappings.clone()));
         let (tx, rx) = mpsc::channel();
 
-        for i in 0..self.seeds.len()/2 {
-            let a = self.seeds[2*i];
-            let b = self.seeds[2*i]+self.seeds[2*i+1];
-            let per_job = (b - a) / jobs_per_range;
-
-            for j in 0..jobs_per_range {
-                let mappings = self.mappings.clone();
-                let tx = tx.clone();
-
-                pool.execute(move || {
-                    let mut res = usize::MAX;
-    
-                    for seed in a + j * per_job..a + (j+1) * per_job {
-                        let mut value = seed;
-                        let mut source = "seed";
-                        
-                        while let Some(mapping) = mappings.get(source) {
-                            value = mapping.forward_convert(value);
-                            source = mapping.destination.as_str();
-                        }
-        
-                        res = res.min(value);
+        for range in ranges {
+            let mappings = self.mappings.clone();
+            let tx = tx.clone();
+            pool.execute(move || {
+                let mut res = usize::MAX;
+                for seed in range.start..range.end {
+                    let mut value = seed;
+                    let mut source = "seed";
+                    
+                    while let Some(mapping) = mappings.get(source) {
+                        value = mapping.forward_convert(value);
+                        source = mapping.destination.as_str();
                     }
-    
-                    let _ = tx.send(res);
-                });
-            }
+        
+                    res = res.min(value);
+                }
+
+                let _ = tx.send(res);
+            })
         }
-        rx.iter().take(jobs).min().unwrap()
+
+        rx.iter().take(threads).min().unwrap()
     }
 
     pub fn solve(&mut self) {
