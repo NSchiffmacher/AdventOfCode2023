@@ -23,16 +23,21 @@ impl Solution {
     fn part1(&mut self) -> usize {
         self.lines
             .iter()
-            .map(|hand_str| Hand::from(hand_str.as_str()))
+            .map(|hand_str| Hand::new(hand_str.as_str(), 1))
             .sorted()
             .enumerate()
             .map(|(rank, hand)| (rank+1) * hand.bid)
             .sum()
-        
     }
 
-    fn part2(&mut self) {
-
+    fn part2(&mut self) -> usize {
+        self.lines
+            .iter()
+            .map(|hand_str| Hand::new(hand_str.as_str(), 2))
+            .sorted()
+            .enumerate()
+            .map(|(rank, hand)| (rank+1) * hand.bid)
+            .sum()
     }
 
     pub fn solve(&mut self) {
@@ -54,21 +59,29 @@ struct Hand {
     hand_type: HandType,
 }
 
-impl From<&str> for Hand {
-    fn from(line: &str) -> Self {
+impl Hand {
+    fn new(line: &str, part: usize) -> Self {
         let (cards, bid) = line.split_once(" ").unwrap();
-        let cards = cards.chars().map(|card| Card::from(card)).collect_vec();
+        let cards = cards.chars().map(|card| Card::new(card, part)).collect_vec();
         let bid = bid.parse().unwrap();
 
         // Determine card type
-        let frequencies_map = cards.iter().fold(HashMap::new(), |mut map, val|{
-            map.entry(val)
-               .and_modify(|frq|*frq+=1)
-               .or_insert(1);
-            map
-        });
-        let frequencies = &frequencies_map.values().sorted().rev().map(|x| *x).collect_vec()[..];
-        let hand_type = match frequencies {
+        let joker_count = cards.iter().filter(|card| **card == Card::Joker).count(); // PART 2
+        let frequencies = if joker_count != 5 {
+            let frequencies_map = cards.iter().filter(|card| **card != Card::Joker).fold(HashMap::new(), |mut map, val|{
+                map.entry(val)
+                .and_modify(|frq|*frq+=1)
+                .or_insert(1);
+                map
+            });
+            let mut frequencies = frequencies_map.values().sorted().rev().map(|x| *x).collect_vec();
+            frequencies[0] += joker_count;
+            frequencies
+        } else {
+            vec![5]
+        };
+
+        let hand_type = match &frequencies[..] {
             [5] => HandType::FiveOfAKind,
             [4, 1] => HandType::FourOfAKind,
             [3, 2] => HandType::FullHouse,
@@ -76,7 +89,7 @@ impl From<&str> for Hand {
             [2, 2, 1] => HandType::TwoPair,
             [2, 1, 1, 1] => HandType::OnePair,
             [1, 1, 1, 1, 1] => HandType::HighCard,
-            _ => panic!("Impossible frequencies: {:?} for frequencies map {:?}", frequencies, frequencies_map),
+            _ => panic!("Impossible frequencies: {:?} for hand {:?}", frequencies, line),
         };
 
         Self {
@@ -123,6 +136,7 @@ enum HandType {
 
 #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 enum Card {
+    Joker, // PART 2
     Two,
     Three,
     Four,
@@ -132,14 +146,14 @@ enum Card {
     Height,
     Nine,
     T,
-    J,
+    J, // PART 1
     Q,
     K,
     A,
 }
 
-impl From<char> for Card {
-    fn from(value: char) -> Self {
+impl Card {
+    fn new(value: char, part: usize) -> Self {
         match value {
             '2' => Self::Two,
             '3' => Self::Three,
@@ -150,7 +164,8 @@ impl From<char> for Card {
             '8' => Self::Height,
             '9' => Self::Nine,
             'T' => Self::T,
-            'J' => Self::J,
+            'J' if part == 1 => Self::J,
+            'J' if part == 2 => Self::Joker,
             'Q' => Self::Q,
             'A' => Self::A,
             'K' => Self::K,
