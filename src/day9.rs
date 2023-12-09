@@ -1,8 +1,12 @@
 use std::fs::read_to_string;
 use std::io::{self, Write};
 
+use itertools::Itertools;
+
 pub struct Solution {
     lines: Vec<String>,
+    values: Vec<Vec<i64>>,
+    derivates: Vec<Vec<Vec<i64>>>,
 }
 
 impl Solution {
@@ -12,17 +16,70 @@ impl Solution {
             lines.push(line.to_string());
         }
 
+        // Parse the values
+        let values = lines
+            .iter()
+            .map(|line| line  
+                                    .split_whitespace()
+                                    .map(|v| v.parse::<i64>().unwrap())
+                                    .collect_vec())
+            .collect_vec();
+
+        
+        // Compute the "derivates"
+        let mut derivates: Vec<Vec<Vec<i64>>> = vec![];
+        for values_list in &values {
+            let mut current_derivates = vec![values_list.clone()];
+            while current_derivates.last().unwrap().iter().any(|x| *x != 0) {
+                let next_order_derivates = current_derivates.last().unwrap()
+                    .iter()
+                    .zip(current_derivates.last().unwrap().iter().skip(1))
+                    .map(|(a, b)| *b - *a)
+                    .collect_vec();
+                current_derivates.push(next_order_derivates);
+            }
+            derivates.push(current_derivates);
+        }
+
         Self {
             lines,
+            values,
+            derivates,
         }
     }
 
-    fn part1(&mut self) {
-
+    fn part1(&mut self) -> i64 {
+        self
+            .derivates
+            .iter()
+            .map(|derivate| self.extrapolate_end(derivate))
+            .sum()
     }
 
-    fn part2(&mut self) {
+    fn part2(&mut self) -> i64 {
+        self
+            .derivates
+            .iter()
+            .map(|derivate| self.extrapolate_start(derivate))
+            .sum()
+    }
 
+    fn extrapolate_end(&self, derivates: &Vec<Vec<i64>>) -> i64 {
+        // Intregrate the result
+        let mut current_result = 0;
+        for derivate in derivates.iter().rev() {
+            current_result += derivate.last().unwrap();
+        }
+        current_result
+    }
+
+    fn extrapolate_start(&self, derivates: &Vec<Vec<i64>>) -> i64 {
+        // Intregrate the result
+        let mut current_result = 0;
+        for derivate in derivates.iter().rev() {
+            current_result = derivate.first().unwrap() - current_result;
+        }
+        current_result
     }
 
     pub fn solve(&mut self) {
