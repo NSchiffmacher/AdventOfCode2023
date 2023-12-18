@@ -78,10 +78,18 @@ impl Solution {
         println!("========= DAY 4 ========");
         print!("Solving part 1: ");
         io::stdout().flush().unwrap();
-        println!("{:?}", self.part1());
-        
+
+        let start = std::time::Instant::now();
+        let part1 = self.part1();
+        let part1_time = start.elapsed();
+        println!("{:?} (took {:?})", part1, part1_time);
+
         print!("Solving part 2: ");
         io::stdout().flush().unwrap();
-        println!("{:?}\n", self.part2());
+        let start = std::time::Instant::now();
+        let part2 = self.part2();
+        let part2_time = start.elapsed();
+        println!("{:?} (took {:?})", part2, part2_time);
+        println!();
     }
 }

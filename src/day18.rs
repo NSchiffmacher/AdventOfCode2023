@@ -63,6 +63,7 @@ impl Solution {
 
     pub fn solve(&mut self) {
         println!("========= DAY 18 ========");
+        
         print!("Solving part 1: ");
         io::stdout().flush().unwrap();
 
@@ -77,6 +78,7 @@ impl Solution {
         let part2 = self.part2();
         let part2_time = start.elapsed();
         println!("{:?} (took {:?})", part2, part2_time);
+        println!();
     }
 }
 
