@@ -1,6 +1,5 @@
 use std::fs::read_to_string;
 use std::io::{self, Write};
-use std::ops::Index;
 
 use itertools::Itertools;
 
