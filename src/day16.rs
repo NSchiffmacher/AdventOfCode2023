@@ -90,7 +90,7 @@ impl Solution {
     }
 
     pub fn solve(&mut self) {
-        println!("========= DAY 17 ========");
+        println!("========= DAY 16 ========");
         
         print!("Solving part 1: ");
         io::stdout().flush().unwrap();
