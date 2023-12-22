@@ -28,5 +28,5 @@ use advent::day23;
 use advent::day24;
 
 fn main() {
-    day21::Solution::init().solve();
+    day22::Solution::init().solve();
 }
